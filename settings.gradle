@@ -1,2 +1,2 @@
-include ':app', ':rendringengine'
+include ':rendringengine'
 rootProject.name='RenderingEngineAndroid'
