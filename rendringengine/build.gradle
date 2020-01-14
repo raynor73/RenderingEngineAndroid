@@ -39,6 +39,7 @@ dependencies {
     api 'com.google.guava:guava:28.0-android'
     implementation 'com.github.raynor73:Engine3DJvm:0.1'
     implementation 'com.github.raynor73:RenderingEngine:0.1'
+    implementation 'com.github.raynor73:Commons:0.1'
 
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
