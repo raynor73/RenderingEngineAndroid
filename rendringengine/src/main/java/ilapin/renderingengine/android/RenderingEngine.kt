@@ -90,13 +90,13 @@ class RenderingEngine(
         }
     }
 
-    override fun loadTexture(textureName: String) {
+    override fun loadTexture(textureName: String, path: String) {
         deleteTextureIfExists(textureName)
 
         GLES20.glGenTextures(1, textureIdsOut, 0)
         textureIds[textureName] = textureIdsOut[0]
 
-        val bitmapStream = context.assets.open(textureName)
+        val bitmapStream = context.assets.open(path)
         val bitmap = BitmapFactory.decodeStream(bitmapStream)
         bitmapStream.close()
 
