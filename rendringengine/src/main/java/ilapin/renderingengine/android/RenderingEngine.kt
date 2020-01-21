@@ -7,8 +7,8 @@ import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLUtils
 import com.google.common.collect.HashMultimap
-import ilapin.renderingengine.*
 import ilapin.engine3d.*
+import ilapin.renderingengine.*
 import org.joml.Vector3f
 import org.joml.Vector3fc
 
@@ -30,6 +30,8 @@ class RenderingEngine(
     private val textureIds = HashMap<String, Int>()
     private val textureIdsToDelete = IntArray(1)
     private val textureIdsOut = IntArray(1)
+    private val frameBufferIdsOut = IntArray(1)
+    private val renderBufferIdsOut = IntArray(1)
 
     private val _ambientColor = Vector3f()
 
@@ -110,6 +112,66 @@ class RenderingEngine(
 
         GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+    }
+
+    override fun createTextureForRendering(textureName: String, width: Int, height: Int) {
+        //generate fbo id
+        GLES20.glGenFramebuffers(1, frameBufferIdsOut, 0)
+        val frameBufferId = frameBufferIdsOut[0]
+
+        //generate texture
+        GLES20.glGenTextures(1, textureIdsOut, 0)
+        val textureId = textureIdsOut[0]
+
+        //generate render buffer
+        GLES20.glGenRenderbuffers(1, renderBufferIdsOut, 0)
+        val renderBufferId = renderBufferIdsOut[0]
+
+        //Bind Frame buffer
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, frameBufferId)
+        //Bind texture
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+        //Define texture parameters
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D,
+            0,
+            GLES20.GL_RGBA,
+            width,
+            height,
+            0,
+            GLES20.GL_RGBA,
+            GLES20.GL_UNSIGNED_BYTE,
+            null
+        )
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+
+        //Bind render buffer and define buffer dimension
+        GLES20.glBindRenderbuffer(GLES20.GL_RENDERBUFFER, renderBufferId)
+        GLES20.glRenderbufferStorage(GLES20.GL_RENDERBUFFER, GLES20.GL_DEPTH_COMPONENT16, width, height)
+
+        //Attach texture FBO color attachment
+        GLES20.glFramebufferTexture2D(
+            GLES20.GL_FRAMEBUFFER,
+            GLES20.GL_COLOR_ATTACHMENT0,
+            GLES20.GL_TEXTURE_2D,
+            textureId,
+            0
+        )
+        //Attach render buffer to depth attachment
+        GLES20.glFramebufferRenderbuffer(
+            GLES20.GL_FRAMEBUFFER,
+            GLES20.GL_DEPTH_ATTACHMENT,
+            GLES20.GL_RENDERBUFFER,
+            renderBufferId
+        )
+
+        //we are done, reset
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+        GLES20.glBindRenderbuffer(GLES20.GL_RENDERBUFFER, 0)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
     }
 
     override fun createTexture(textureName: String, width: Int, height: Int, data: IntArray) {
