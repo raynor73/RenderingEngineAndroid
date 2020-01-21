@@ -37,7 +37,7 @@ dependencies {
 
     implementation 'org.joml:joml:1.9.19'
     api 'com.google.guava:guava:28.0-android'
-    implementation 'com.github.raynor73:Engine3DJvm:0.2'
+    implementation 'com.github.raynor73:Engine3DJvm:0.3.2'
     implementation 'com.github.raynor73:RenderingEngine:0.4'
     implementation 'com.github.raynor73:Commons:0.2'
 

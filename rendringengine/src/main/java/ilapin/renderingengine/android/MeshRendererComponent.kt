@@ -33,9 +33,19 @@ class MeshRendererComponent(
 
     private val lineWidth = ceil(displayMetricsRepository.getPixelDensityFactor())
 
-    fun render(camera: CameraComponent, shader: Shader, light: GameObjectComponent?) {
+    fun render(
+        camera: CameraComponent,
+        shader: Shader,
+        light: GameObjectComponent?,
+        textureRenderingTargetInfo: TextureRenderingTargetInfo? = null
+    ) {
         if (!isEnabled) {
             return
+        }
+
+        textureRenderingTargetInfo?.let {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, it.frameBufferId)
+            GLES20.glViewport(0, 0, it.width, it.height)
         }
 
         val material = gameObject?.getComponent(MaterialComponent::class.java) ?: return
@@ -181,5 +191,7 @@ class MeshRendererComponent(
         GLES20.glDisableVertexAttribArray(uvHandle)
         normalHandle.takeIf { it >= 0 }?.let { GLES20.glDisableVertexAttribArray(normalHandle) }
         GLES20.glDisableVertexAttribArray(positionHandle)
+
+        textureRenderingTargetInfo?.let { GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0) }
     }
 }
