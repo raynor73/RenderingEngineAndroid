@@ -7,6 +7,7 @@ import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLUtils
 import com.google.common.collect.HashMultimap
+import ilapin.common.kotlin.safeLet
 import ilapin.engine3d.*
 import ilapin.renderingengine.*
 import org.joml.Vector3f
@@ -28,6 +29,7 @@ class RenderingEngine(
     private val cameraToDirectionalLights = HashMultimap.create<CameraComponent, DirectionalLightComponent>()
 
     private val textureIds = HashMap<String, Int>()
+    private val frameBufferIds = HashMap<String, RenderingTargetInfo>()
     private val textureIdsToDelete = IntArray(1)
     private val textureIdsOut = IntArray(1)
     private val frameBufferIdsOut = IntArray(1)
@@ -39,6 +41,8 @@ class RenderingEngine(
     private val directionalLightShader = DirectionalLightShader(context)
     private val cameraShader = CameraShader(context)
     private val unlitShader = UnlitShader(context)
+
+    private var displayRenderingTargetInfo: RenderingTargetInfo? = null
 
     val ambientColor: Vector3fc
         get() = _ambientColor
@@ -118,6 +122,7 @@ class RenderingEngine(
         //generate fbo id
         GLES20.glGenFramebuffers(1, frameBufferIdsOut, 0)
         val frameBufferId = frameBufferIdsOut[0]
+        frameBufferIds[textureName] = RenderingTargetInfo(frameBufferId, width, height)
 
         //generate texture
         GLES20.glGenTextures(1, textureIdsOut, 0)
@@ -224,12 +229,33 @@ class RenderingEngine(
     }
 
     fun render() {
+        safeLet(sceneProvider(), displayRenderingTargetInfo) { scene, displayRenderingTargetInfo ->
+            frameBufferIds.entries.forEach { entry ->
+                renderToTarget(scene.getRenderingTargetCameras(entry.key), entry.value)
+            }
+            renderToTarget(scene.cameras, displayRenderingTargetInfo)
+        }
+    }
+
+    fun onScreenConfigUpdate(width: Int, height: Int) {
+        displayRenderingTargetInfo = RenderingTargetInfo(null, width, height)
+        sceneProvider.invoke()?.onScreenConfigUpdate(width, height)
+    }
+
+    private fun renderToTarget(cameras: List<CameraComponent>, renderingTargetInfo: RenderingTargetInfo) {
+        renderingTargetInfo.frameBufferId?.let { GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, it) }
+
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-        sceneProvider.invoke()?.cameras?.forEach { camera ->
+        cameras.forEach { camera ->
             GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT)
 
             cameraToMeshRenderers[camera].forEach {
+                GLES20.glViewport(0, 0, renderingTargetInfo.width, renderingTargetInfo.height)
+                if (camera is PerspectiveCameraComponent) {
+                    camera.aspect =
+                        renderingTargetInfo.width.toFloat() / renderingTargetInfo.height.toFloat()
+                }
                 val material = it.gameObject?.getComponent(MaterialComponent::class.java) ?: return
                 if (material.textureName == getDeviceCameraTextureName()) {
                     it.render(camera, cameraShader, null)
@@ -261,10 +287,8 @@ class RenderingEngine(
             GLES20.glDepthFunc(GLES20.GL_LESS)
             GLES20.glDisable(GLES20.GL_BLEND)
         }
-    }
 
-    fun onScreenConfigUpdate(width: Int, height: Int) {
-        sceneProvider.invoke()?.onScreenConfigUpdate(width, height)
+        renderingTargetInfo.frameBufferId?.let { GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0) }
     }
 
     private fun deleteTextureIfExists(textureName: String) {
