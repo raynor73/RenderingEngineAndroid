@@ -120,7 +120,59 @@ class RenderingEngine(
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
     }
 
+    override fun createTextureForRenderingDepth(textureName: String, width: Int, height: Int) {
+        deleteTextureIfExists(textureName)
+
+        // Create a frame buffer
+        GLES20.glGenFramebuffers(1, frameBufferIdsOut, 0)
+        val frameBufferId = frameBufferIdsOut[0]
+
+        // Create a texture to hold the depth buffer
+        GLES20.glGenTextures(1, textureIdsOut, 0)
+        val textureId = textureIdsOut[0]
+        textureIds[textureName] = textureId
+
+        renderingTargetsInfo[textureName] = RenderingTargetInfo(frameBufferId, null, width, height)
+
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId)
+
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D,
+            0,
+            GLES20.GL_DEPTH_COMPONENT,
+            width, height,
+            0,
+            GLES20.GL_DEPTH_COMPONENT,
+            GLES20.GL_UNSIGNED_SHORT,
+            null
+        )
+
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
+
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
+
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, frameBufferId)
+
+        // Associate the textures with the FBO.
+        GLES20.glFramebufferTexture2D(
+            GLES20.GL_FRAMEBUFFER,
+            GLES20.GL_DEPTH_ATTACHMENT,
+            GLES20.GL_TEXTURE_2D,
+            textureId, 0
+        )
+
+        // Check FBO status.
+        if (GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+            throw IllegalStateException("Error initializing framebuffer for depth texture")
+        }
+    }
+
     override fun createTextureForRendering(textureName: String, width: Int, height: Int) {
+        deleteTextureIfExists(textureName)
+
         //generate fbo id
         GLES20.glGenFramebuffers(1, frameBufferIdsOut, 0)
         val frameBufferId = frameBufferIdsOut[0]
