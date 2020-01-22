@@ -5,6 +5,7 @@ package ilapin.renderingengine.android
  */
 data class RenderingTargetInfo(
     val frameBufferId: Int?,
+    val renderBufferId: Int?,
     val width: Int,
     val height: Int
 )

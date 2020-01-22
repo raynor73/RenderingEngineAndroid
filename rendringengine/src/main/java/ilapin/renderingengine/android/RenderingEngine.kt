@@ -29,9 +29,11 @@ class RenderingEngine(
     private val cameraToDirectionalLights = HashMultimap.create<CameraComponent, DirectionalLightComponent>()
 
     private val textureIds = HashMap<String, Int>()
-    private val frameBufferIds = HashMap<String, RenderingTargetInfo>()
+    private val renderingTargetsInfo = HashMap<String, RenderingTargetInfo>()
     private val textureIdsToDelete = IntArray(1)
     private val textureIdsOut = IntArray(1)
+    private val frameBufferIdsToDelete = IntArray(1)
+    private val renderBufferIdsToDelete = IntArray(1)
     private val frameBufferIdsOut = IntArray(1)
     private val renderBufferIdsOut = IntArray(1)
 
@@ -122,15 +124,17 @@ class RenderingEngine(
         //generate fbo id
         GLES20.glGenFramebuffers(1, frameBufferIdsOut, 0)
         val frameBufferId = frameBufferIdsOut[0]
-        frameBufferIds[textureName] = RenderingTargetInfo(frameBufferId, width, height)
 
         //generate texture
         GLES20.glGenTextures(1, textureIdsOut, 0)
         val textureId = textureIdsOut[0]
+        textureIds[textureName] = textureId
 
         //generate render buffer
         GLES20.glGenRenderbuffers(1, renderBufferIdsOut, 0)
         val renderBufferId = renderBufferIdsOut[0]
+
+        renderingTargetsInfo[textureName] = RenderingTargetInfo(frameBufferId, renderBufferId, width, height)
 
         //Bind Frame buffer
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, frameBufferId)
@@ -214,8 +218,23 @@ class RenderingEngine(
     }
 
     override fun deleteTexture(textureName: String) {
+        val renderingTargetInfo = renderingTargetsInfo[textureName]
+
+        renderingTargetInfo?.renderBufferId?.let {
+            renderBufferIdsToDelete[0] = it
+            GLES20.glDeleteRenderbuffers(1, renderBufferIdsToDelete, 0)
+        }
+
         textureIdsToDelete[0] = getTextureId(textureName)
         GLES20.glDeleteTextures(1, textureIdsToDelete, 0)
+
+        renderingTargetInfo?.frameBufferId?.let {
+            frameBufferIdsToDelete[0] = it
+            GLES20.glDeleteFramebuffers(1, frameBufferIdsToDelete, 0)
+        }
+
+        textureIds.remove(textureName)
+        renderingTargetsInfo.remove(textureName)
     }
 
     override fun getDeviceCameraTextureName() = "androidCameraPreviewTexture"
@@ -230,7 +249,7 @@ class RenderingEngine(
 
     fun render() {
         safeLet(sceneProvider(), displayRenderingTargetInfo) { scene, displayRenderingTargetInfo ->
-            frameBufferIds.entries.forEach { entry ->
+            renderingTargetsInfo.entries.forEach { entry ->
                 renderToTarget(scene.getRenderingTargetCameras(entry.key), entry.value)
             }
             renderToTarget(scene.cameras, displayRenderingTargetInfo)
@@ -238,7 +257,7 @@ class RenderingEngine(
     }
 
     fun onScreenConfigUpdate(width: Int, height: Int) {
-        displayRenderingTargetInfo = RenderingTargetInfo(null, width, height)
+        displayRenderingTargetInfo = RenderingTargetInfo(null, null, width, height)
         sceneProvider.invoke()?.onScreenConfigUpdate(width, height)
     }
 
@@ -292,10 +311,25 @@ class RenderingEngine(
     }
 
     private fun deleteTextureIfExists(textureName: String) {
+        val renderingTargetInfo = renderingTargetsInfo[textureName]
+
+        renderingTargetInfo?.renderBufferId?.let {
+            renderBufferIdsToDelete[0] = it
+            GLES20.glDeleteRenderbuffers(1, renderBufferIdsToDelete, 0)
+        }
+
         textureIds[textureName]?.let {
             textureIdsToDelete[0] = it
             GLES20.glDeleteTextures(1, textureIdsToDelete, 0)
         }
+
+        renderingTargetInfo?.frameBufferId?.let {
+            frameBufferIdsToDelete[0] = it
+            GLES20.glDeleteFramebuffers(1, frameBufferIdsToDelete, 0)
+        }
+
+        textureIds.remove(textureName)
+        renderingTargetsInfo.remove(textureName)
     }
 
     companion object {
